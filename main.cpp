@@ -6,7 +6,7 @@
 namespace serial {
     const int serialNumberLength = 32;
     std::unordered_map<int, std::string> map = {
-            {0,   "Code Missing"},
+            {0,   "Code Missing (0)"},
             {1,   "Audio device"},
             {2,   "Network adapter"},
             {3,   "User Interface Device"},
@@ -68,7 +68,9 @@ void print_dev(libusb_device *dev) {
         return;
     }
     libusb_get_config_descriptor(dev, 0, &config);
-    std::cout << "Device class: " << serial::map[static_cast<int>(desc.bDeviceClass)] << std::endl;
+    int deviceClass = static_cast<int>(desc.bDeviceClass);
+    std::string dClass = serial::map.contains(deviceClass) ? serial::map[deviceClass] : "Not declared class code";
+    std::cout << "Device class: " << dClass << std::endl;
     std::cout << "Vendor id: " << std::hex << desc.idVendor << std::endl;
     std::cout << "Product id: " << desc.idProduct << std::endl;
 
