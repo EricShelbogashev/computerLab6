@@ -3,7 +3,9 @@
 #include <sstream>
 #include <unordered_map>
 
-namespace serial {
+void print_dev(libusb_device *dev, const std::unordered_map<int, std::string> &map, size_t serialNumberLength);
+
+int main() {
     const int serialNumberLength = 32;
     std::unordered_map<int, std::string> map = {
             {0,   "Code Missing (0)"},
@@ -26,12 +28,6 @@ namespace serial {
             {239, "Various Devices"},
             {254, "Specific device"},
     };
-}
-
-void print_dev(libusb_device *dev);
-
-int main() {
-
     libusb_device **devs;
     libusb_context *ctx = nullptr; // libusb session context
     int r; // for results
@@ -49,7 +45,7 @@ int main() {
     }
 
     for (int i = 0; i < cnt; i++) {
-        print_dev(devs[i]);
+        print_dev(devs[i], map, serialNumberLength);
     }
     // release the memory allocated by the get device list function
     libusb_free_device_list(devs, 1);
@@ -59,7 +55,7 @@ int main() {
 
 // https://www.keil.com/pack/doc/mw/USB/html/_u_s_b__interface__descriptor.html
 // https://libusb.sourceforge.io/api-1.0
-void print_dev(libusb_device *dev) {
+void print_dev(libusb_device *dev, const std::unordered_map<int, std::string> &map, const size_t serialNumberLength) {
     libusb_device_descriptor desc{};
     libusb_config_descriptor *config;
     int r = libusb_get_device_descriptor(dev, &desc);
@@ -69,18 +65,20 @@ void print_dev(libusb_device *dev) {
     }
     libusb_get_config_descriptor(dev, 0, &config);
     int deviceClass = static_cast<int>(desc.bDeviceClass);
-    std::string dClass = serial::map.contains(deviceClass) ? serial::map[deviceClass] : "Not declared class code";
+    auto it = std::find_if(map.begin(), map.end(), [&deviceClass](const std::pair<int, std::string> &p){ return p.first == deviceClass; });
+    std::string dClass = it != map.end() ? it->second : "Not declared class code";
     std::cout << "Device class: " << dClass << std::endl;
     std::cout << "Vendor id: " << std::hex << desc.idVendor << std::endl;
     std::cout << "Product id: " << desc.idProduct << std::endl;
 
     libusb_device_handle *handle;
-    auto *data = new uint8_t[33]();
+    auto *data = new uint8_t[serialNumberLength + 1]();
     try {
         libusb_open(dev, &handle);
         if (handle != nullptr) {
-            if (libusb_get_string_descriptor_ascii(handle, desc.iSerialNumber, data, serial::serialNumberLength - 1) >= 0) {
-                data[serial::serialNumberLength] = '\0';
+            if (libusb_get_string_descriptor_ascii(handle, desc.iSerialNumber, data,
+                                                   static_cast<int>(serialNumberLength) - 1) >= 0) {
+                data[serialNumberLength] = '\0';
                 std::cout << "Serial number: " << data << std::endl;
             }
         }
